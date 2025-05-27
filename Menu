@@ -1,0 +1,146 @@
+-- SERVICES
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+-- GUI
+local screenGui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+screenGui.Name = "SaeHubUI"
+
+local frame = Instance.new("Frame", screenGui)
+frame.Size = UDim2.new(0, 250, 0, 150)
+frame.Position = UDim2.new(0, 10, 0, 10)
+frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+frame.BorderSizePixel = 0
+frame.BackgroundTransparency = 0.2
+
+local label = Instance.new("TextLabel", frame)
+label.Size = UDim2.new(1, 0, 1, 0)
+label.Text = "Sae Hub Controls:\n\n[F] Fly\n[N] Noclip\n[P] Kill on Touch\n\nTắt/Bật mỗi phím để kích hoạt."
+label.TextColor3 = Color3.fromRGB(255, 255, 255)
+label.BackgroundTransparency = 1
+label.Font = Enum.Font.GothamSemibold
+label.TextSize = 16
+label.TextWrapped = true
+label.TextXAlignment = Enum.TextXAlignment.Left
+
+-- FLY
+local flying = false
+local speed = 80
+local bodyGyro, bodyVelocity
+
+local control = {F = 0, B = 0, L = 0, R = 0, U = 0, D = 0}
+
+function Fly()
+	flying = true
+
+	bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.P = 9e4
+	bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+	bodyGyro.CFrame = rootPart.CFrame
+	bodyGyro.Parent = rootPart
+
+	bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+	bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+	bodyVelocity.Parent = rootPart
+
+	RunService.RenderStepped:Connect(function()
+		if flying then
+			local camCF = workspace.CurrentCamera.CFrame
+			local moveVec = Vector3.new(
+				control.R - control.L,
+				control.U - control.D,
+				control.B - control.F
+			)
+
+			if moveVec.Magnitude > 0 then
+				moveVec = camCF:VectorToWorldSpace(moveVec).Unit * speed
+				bodyVelocity.Velocity = moveVec
+			else
+				bodyVelocity.Velocity = Vector3.zero
+			end
+
+			bodyGyro.CFrame = camCF
+		end
+	end)
+end
+
+function StopFlying()
+	flying = false
+	if bodyGyro then bodyGyro:Destroy() end
+	if bodyVelocity then bodyVelocity:Destroy() end
+end
+
+-- NOCLIP
+local noclip = false
+
+RunService.Stepped:Connect(function()
+	if noclip then
+		local character = player.Character
+		if character then
+			for _, part in pairs(character:GetDescendants()) do
+				if part:IsA("BasePart") then
+					part.CanCollide = false
+				end
+			end
+		end
+	end
+end)
+
+-- KILL ON TOUCH
+local killTouch = false
+
+local function enableKill()
+	local char = player.Character
+	if not char then return end
+
+	for _, part in pairs(char:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.Touched:Connect(function(hit)
+				if killTouch and hit.Parent and hit.Parent:FindFirstChild("Humanoid") and hit.Parent ~= char then
+					hit.Parent:FindFirstChild("Humanoid").Health = 0
+				end
+			end)
+		end
+	end
+end
+
+player.CharacterAdded:Connect(enableKill)
+enableKill()
+
+-- KEYBINDS
+UIS.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+
+	if input.KeyCode == Enum.KeyCode.F then
+		if flying then
+			StopFlying()
+		else
+			Fly()
+		end
+	elseif input.KeyCode == Enum.KeyCode.N then
+		noclip = not noclip
+	elseif input.KeyCode == Enum.KeyCode.P then
+		killTouch = not killTouch
+	end
+
+	if input.KeyCode == Enum.KeyCode.W then control.F = 1 end
+	if input.KeyCode == Enum.KeyCode.S then control.B = 1 end
+	if input.KeyCode == Enum.KeyCode.A then control.L = 1 end
+	if input.KeyCode == Enum.KeyCode.D then control.R = 1 end
+	if input.KeyCode == Enum.KeyCode.Space then control.U = 1 end
+	if input.KeyCode == Enum.KeyCode.LeftControl then control.D = 1 end
+end)
+
+UIS.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.W then control.F = 0 end
+	if input.KeyCode == Enum.KeyCode.S then control.B = 0 end
+	if input.KeyCode == Enum.KeyCode.A then control.L = 0 end
+	if input.KeyCode == Enum.KeyCode.D then control.R = 0 end
+	if input.KeyCode == Enum.KeyCode.Space then control.U = 0 end
+	if input.KeyCode == Enum.KeyCode.LeftControl then control.D = 0 end
+end)
